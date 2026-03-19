@@ -23,7 +23,7 @@
 	}
 
 	function connectAppleMusic() {
-		showToast('Apple Music coming soon!');
+		window.location.href = '/api/apple/authorize';
 	}
 
 	function toggleLike(id: string) {
