@@ -1,27 +1,27 @@
 import { APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY } from '$env/static/private';
-import { createSign } from 'crypto';
+import * as jose from 'jose';
 
 // ─────────────────────────────────────────────
 // Generate a Developer Token (JWT)
 // Apple requires this to prove requests come from your app.
 // It expires after 6 months max — we use 180 days here.
 // ─────────────────────────────────────────────
-export function generateAppleDeveloperToken(): string {
+export async function generateAppleDeveloperToken(): Promise<string> {
 	const now = Math.floor(Date.now() / 1000);
 	const expiry = now + 60 * 60 * 24 * 180; // 180 days
 
-	// JWT header + payload
-	const header = Buffer.from(JSON.stringify({ alg: 'ES256', kid: APPLE_KEY_ID })).toString('base64url');
-	const payload = Buffer.from(JSON.stringify({ iss: APPLE_TEAM_ID, iat: now, exp: expiry })).toString('base64url');
+	// Handle standard newlines, escaped newlines, and strip accidental quotes
+	const privateKey = APPLE_PRIVATE_KEY.replace(/\\n/g, '\n').replace(/^"|"$/g, '');
+	const key = await jose.importPKCS8(privateKey, 'ES256');
 
-	const unsigned = `${header}.${payload}`;
+	const token = await new jose.SignJWT({})
+		.setProtectedHeader({ alg: 'ES256', kid: APPLE_KEY_ID })
+		.setIssuer(APPLE_TEAM_ID)
+		.setIssuedAt(now)
+		.setExpirationTime(expiry)
+		.sign(key);
 
-	// Sign with your .p8 private key
-	const sign = createSign('SHA256');
-	sign.update(unsigned);
-	const signature = sign.sign(APPLE_PRIVATE_KEY.replace(/\\n/g, '\n'), 'base64url');
-
-	return `${unsigned}.${signature}`;
+	return token;
 }
 
 // ─────────────────────────────────────────────
@@ -30,7 +30,7 @@ export function generateAppleDeveloperToken(): string {
 // Requires the user's Music User Token (from the frontend MusicKit flow).
 // ─────────────────────────────────────────────
 export async function fetchAppleMusicTopArtists(musicUserToken: string, limit = 15) {
-	const developerToken = generateAppleDeveloperToken();
+	const developerToken = await generateAppleDeveloperToken();
 
 	// Apple doesn't have a direct "top artists" endpoint.
 	// We use heavy-rotation (most played recently) and extract unique artists.

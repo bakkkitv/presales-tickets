@@ -6,7 +6,7 @@ import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 // When the user clicks "Connect Apple Music", this runs first.
 // It generates a developer token and sends the user to Apple's login page.
 export const GET: RequestHandler = async () => {
-	const developerToken = generateAppleDeveloperToken();
+	const developerToken = await generateAppleDeveloperToken();
 
 	// Apple's MusicKit auth happens on the frontend via MusicKit JS.
 	// We redirect to a special page that loads MusicKit JS,
