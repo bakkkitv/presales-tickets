@@ -93,8 +93,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	// ── APPLE MUSIC ──────────────────────────────────────────────
 	if (userRow.streaming_service === 'apple') {
-		const musicUserToken: string | null = userRow.access_token ?? null;
-		if (!musicUserToken) return { email: user.email ?? null, connected: false, topArtists: [], feed: [] };
+    const musicUserToken: string | null = userRow.access_token ?? null;
+    if (!musicUserToken) throw redirect(303, '/api/apple/authorize');
 
 		const topArtistsRes = await fetchAppleMusicTopArtists(musicUserToken, 15);
 		if (!topArtistsRes.ok) {
