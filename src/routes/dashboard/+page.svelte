@@ -7,9 +7,9 @@
 
 	type Phase = 'connect' | 'feed';
 
-	let phase = $state<Phase>(data.connected ? 'feed' : 'connect');
-	let topArtists = $state(data.topArtists ?? []);
-	let events = $state(data.feed ?? []);
+	let phase = $derived<Phase>(data.connected ? 'feed' : 'connect');
+	let topArtists = $derived(data.topArtists ?? []);
+	let events = $derived(data.feed ?? []);
 	let liked = $state<Record<string, boolean>>({});
 	let saved = $state<Record<string, boolean>>({});
 	let toastMsg = $state('');
@@ -39,7 +39,7 @@
 	async function doDisconnect() {
 		if (!confirm('Sign out?')) return;
 		await supabase.auth.signOut();
-		goto('/');
+		goto('/login');
 	}
 
 	function showToast(msg: string) {
@@ -85,13 +85,11 @@
 <!-- NAV -->
 <nav>
 	<div class="logo">Presale<strong>Tickets</strong></div>
-	{#if phase === 'feed'}
-		<div class="nav-right">
-			<button class="avatar-btn" onclick={doDisconnect} title="Sign out">
-				{initial(data.email || 'U')}
-			</button>
-		</div>
-	{/if}
+	<div class="nav-right">
+		<button class="avatar-btn" onclick={doDisconnect} title="Sign out">
+			{initial(data.email || 'U')}
+		</button>
+	</div>
 </nav>
 
 <!-- CONNECT SCREEN -->
@@ -121,7 +119,7 @@
 			</div>
 
 			<button class="signout-link" onclick={() => { supabase.auth.signOut(); goto('/login'); }}>
-				Use a different account
+				Log out
 			</button>
 		</div>
 	</div>

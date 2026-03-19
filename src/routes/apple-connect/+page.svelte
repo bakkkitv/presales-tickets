@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { supabase } from '$lib/supabase';
 
 	// The developer token was passed in the URL from the authorize route
 	const developerToken = $derived($page.url.searchParams.get('dt') ?? '');
@@ -64,7 +65,13 @@
 
 		} catch (err: any) {
 			status = 'error';
-			errorMsg = err.message ?? 'Something went wrong';
+			const msg = err?.message || 'Something went wrong';
+			
+			if (msg.toLowerCase().includes('unauthorized') || msg.includes('Music User Token')) {
+				errorMsg = "Apple Music authorization failed. An active Apple Music subscription is required, or the prompt was cancelled.";
+			} else {
+				errorMsg = msg;
+			}
 		}
 	}
 </script>
@@ -109,7 +116,10 @@
 			<button class="connect-btn" onclick={authorize}>Try again</button>
 		{/if}
 
-		<a class="back-link" href="/dashboard">← Go back</a>
+		<div class="footer-links">
+			<a class="back-link" href="/dashboard">← Go back</a>
+			<button class="signout-link" onclick={async () => { await supabase.auth.signOut(); goto('/login'); }}>Log out</button>
+		</div>
 	</div>
 </div>
 
@@ -167,6 +177,13 @@
 		border-radius: 8px; padding: 10px 14px;
 		width: 100%;
 	}
-	.back-link { font-size: 0.78rem; color: rgba(240,236,228,0.35); text-decoration: none; margin-top: 6px; }
-	.back-link:hover { color: rgba(240,236,228,0.6); }
+	.footer-links {
+		display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 6px;
+	}
+	.back-link, .signout-link {
+		font-family: inherit;
+		font-size: 0.78rem; color: rgba(240,236,228,0.35); text-decoration: none; 
+		background: none; border: none; padding: 0; cursor: pointer;
+	}
+	.back-link:hover, .signout-link:hover { color: rgba(240,236,228,0.6); }
 </style>

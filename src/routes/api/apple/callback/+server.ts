@@ -26,19 +26,31 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const admin = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-	// Save to the users table
-	// We store the Music User Token as access_token
-	// and mark streaming_service as 'apple'
-	const { error } = await admin
+	// Check if user row exists
+	const { data: existingRow } = await admin
 		.from('users')
-		.update({
-			streaming_service: 'apple',
-			is_authorized: true,
-			access_token: musicUserToken,
-			refresh_token: null,       // Apple Music tokens don't need refreshing
-			token_expires_at: null     // They last ~6 months
-		})
-		.eq('auth_user_id', user.id);
+		.select('id')
+		.eq('auth_user_id', user.id)
+		.maybeSingle();
+
+	const payload = {
+		auth_user_id: user.id,
+		streaming_service: 'apple',
+		is_authorized: true,
+		access_token: musicUserToken,
+		refresh_token: null,       // Apple Music tokens don't need refreshing
+		token_expires_at: null     // They last ~6 months
+	};
+
+	let error;
+
+	if (existingRow) {
+		const { error: updateErr } = await admin.from('users').update(payload).eq('id', existingRow.id);
+		error = updateErr;
+	} else {
+		const { error: insertErr } = await admin.from('users').insert([payload]);
+		error = insertErr;
+	}
 
 	if (error) {
 		console.error('Failed to save Apple Music token:', error);
