@@ -48,10 +48,11 @@
 
 			// Send the token to our server to save it
 			const res = await fetch('/api/apple/callback', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ musicUserToken })
-			});
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ musicUserToken })
+});
 
 			if (!res.ok) {
 				const err = await res.json();
