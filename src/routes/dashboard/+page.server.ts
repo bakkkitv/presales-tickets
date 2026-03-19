@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { fetchSpotifyTopArtists, refreshSpotifyAccessToken } from '$lib/server/spotify';
 import { fetchAppleMusicTopArtists } from '$lib/server/apple';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const localsAny = locals as any;
 
 	const { data: { user }, error: userError } = await localsAny.supabase.auth.getUser();
@@ -93,8 +93,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	// ── APPLE MUSIC ──────────────────────────────────────────────
 	if (userRow.streaming_service === 'apple') {
-    const musicUserToken: string | null = userRow.access_token ?? null;
-    if (!musicUserToken) throw redirect(303, '/api/apple/authorize');
+		if (!url.searchParams.has('fresh')) {
+			throw redirect(303, '/api/apple/authorize');
+		}
+		const musicUserToken: string | null = userRow.access_token ?? null;
+		if (!musicUserToken) return { email: user.email ?? null, connected: false, topArtists: [], feed: [] };
 
 		const topArtistsRes = await fetchAppleMusicTopArtists(musicUserToken, 15);
 		if (!topArtistsRes.ok) {
@@ -105,8 +108,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 		const topArtists = topArtistsRes.items;
 		if (topArtists.length === 0) return { email: user.email ?? null, connected: true, topArtists: [], feed: [] };
 
-		// Apple Music IDs don't match our events table (which uses Spotify IDs).
-		// So we match events by artist name instead.
 		const { data: events, error: eventsErr } = await admin
 			.from('events')
 			.select('*')

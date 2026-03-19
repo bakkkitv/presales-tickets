@@ -62,8 +62,9 @@
 			status = 'success';
 
 			// Redirect back to the feed
-			setTimeout(() => goto('/dashboard'), 1200);
+			setTimeout(() => goto('/dashboard?fresh=1'), 1200);
 
+			
 		} catch (err: any) {
 			status = 'error';
 			const msg = err?.message || 'Something went wrong';
