@@ -14,21 +14,23 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	const admin = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-	// Try id = auth UUID first (new schema). Fall back to auth_user_id (old schema).
+	// Look up by auth_user_id first (reliable across both schema versions).
+	// Only select columns that are guaranteed to exist in the current schema.
 	let { data: userRow, error: userErr } = await admin
 		.from('users')
-		.select('id, streaming_service, is_authorized, access_token, apple_music_user_token, refresh_token, token_expires_at')
-		.eq('id', user.id)
+		.select('id, auth_user_id, streaming_service, is_authorized, access_token, refresh_token, token_expires_at')
+		.eq('auth_user_id', user.id)
 		.maybeSingle();
 
-	if (userErr || !userRow) {
+	// Fall back to id = auth UUID (post-migration schema where id IS the auth UUID).
+	if (!userRow && !userErr) {
 		const fallback = await admin
 			.from('users')
-			.select('id, streaming_service, is_authorized, access_token, apple_music_user_token, refresh_token, token_expires_at')
-			.eq('auth_user_id', user.id)
+			.select('id, auth_user_id, streaming_service, is_authorized, access_token, refresh_token, token_expires_at')
+			.eq('id', user.id)
 			.maybeSingle();
-		if (!userErr) userErr = fallback.error;
-		if (fallback.data) userRow = fallback.data;
+		userErr = fallback.error;
+		userRow = fallback.data;
 	}
 
 	if (userErr) console.error('Load users row failed:', userErr);
@@ -106,9 +108,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		if (!url.searchParams.has('fresh')) {
 			throw redirect(303, '/api/apple/authorize');
 		}
-		// apple_music_user_token is the new column; fall back to access_token for
-		// rows saved before the migration added the dedicated column.
-		const musicUserToken: string | null = userRow.apple_music_user_token ?? userRow.access_token ?? null;
+		const musicUserToken: string | null = (userRow as any).apple_music_user_token ?? userRow.access_token ?? null;
 		if (!musicUserToken) return { email: user.email ?? null, connected: false, topArtists: [], feed: [] };
 
 		const topArtistsRes = await fetchAppleMusicTopArtists(musicUserToken, 15);
