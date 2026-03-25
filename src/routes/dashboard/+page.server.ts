@@ -16,9 +16,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	const { data: userRow, error: userErr } = await admin
 		.from('users')
-		.select('id, auth_user_id, streaming_service, is_authorized, access_token, refresh_token, token_expires_at')
-		.eq('auth_user_id', user.id)
-		.limit(1)
+		.select('id, streaming_service, is_authorized, access_token, apple_music_user_token, refresh_token, token_expires_at')
+		.eq('id', user.id)
 		.maybeSingle();
 
 	if (userErr) console.error('Load users row failed:', userErr);
@@ -96,7 +95,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		if (!url.searchParams.has('fresh')) {
 			throw redirect(303, '/api/apple/authorize');
 		}
-		const musicUserToken: string | null = userRow.access_token ?? null;
+		const musicUserToken: string | null = userRow.apple_music_user_token ?? null;
 		if (!musicUserToken) return { email: user.email ?? null, connected: false, topArtists: [], feed: [] };
 
 		const topArtistsRes = await fetchAppleMusicTopArtists(musicUserToken, 15);
@@ -118,7 +117,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		if (eventsErr) console.error('Events query failed:', eventsErr);
 
 		const nameToRank = new Map<string, number>();
-		topArtists.forEach((a, i) => nameToRank.set(a.name.toLowerCase(), i));
+		topArtists.forEach((a: { id: string; name: string; image_url: string | null }, i: number) => nameToRank.set(a.name.toLowerCase(), i));
 
 		const matchedEvents = (events ?? []).filter((ev) =>
 			ev.artist_name && nameToRank.has(ev.artist_name.toLowerCase())
@@ -136,7 +135,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			email: user.email ?? null,
 			connected: true,
 			streamingService: 'apple' as const,
-			topArtists: topArtists.map((a, i) => ({
+			topArtists: topArtists.map((a: { id: string; name: string; image_url: string | null }, i: number) => ({
 				artist_id: a.id,
 				artist_name: a.name,
 				image_url: a.image_url ?? null,
