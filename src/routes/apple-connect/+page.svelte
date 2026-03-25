@@ -36,6 +36,11 @@
 				}
 			});
 
+			// Clear any cached token first so Apple always shows the consent dialog.
+			// Without this, MusicKit returns a stale cached token silently and the
+			// app never appears in the user's "Apps with access to Apple Music".
+			await music.unauthorize();
+
 			// This pops up Apple's login/permission dialog for the user
 			await music.authorize();
 
