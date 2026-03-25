@@ -14,11 +14,22 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	const admin = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-	const { data: userRow, error: userErr } = await admin
+	// Try id = auth UUID first (new schema). Fall back to auth_user_id (old schema).
+	let { data: userRow, error: userErr } = await admin
 		.from('users')
 		.select('id, streaming_service, is_authorized, access_token, apple_music_user_token, refresh_token, token_expires_at')
 		.eq('id', user.id)
 		.maybeSingle();
+
+	if (userErr || !userRow) {
+		const fallback = await admin
+			.from('users')
+			.select('id, streaming_service, is_authorized, access_token, apple_music_user_token, refresh_token, token_expires_at')
+			.eq('auth_user_id', user.id)
+			.maybeSingle();
+		if (!userErr) userErr = fallback.error;
+		if (fallback.data) userRow = fallback.data;
+	}
 
 	if (userErr) console.error('Load users row failed:', userErr);
 
@@ -95,7 +106,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		if (!url.searchParams.has('fresh')) {
 			throw redirect(303, '/api/apple/authorize');
 		}
-		const musicUserToken: string | null = userRow.apple_music_user_token ?? null;
+		// apple_music_user_token is the new column; fall back to access_token for
+		// rows saved before the migration added the dedicated column.
+		const musicUserToken: string | null = userRow.apple_music_user_token ?? userRow.access_token ?? null;
 		if (!musicUserToken) return { email: user.email ?? null, connected: false, topArtists: [], feed: [] };
 
 		const topArtistsRes = await fetchAppleMusicTopArtists(musicUserToken, 15);

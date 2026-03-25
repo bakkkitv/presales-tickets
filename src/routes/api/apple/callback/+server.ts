@@ -26,17 +26,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const admin = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-	// The trigger already created the user row with id = auth UUID.
-	// Just update it with the Music User Token from MusicKit.
-	const { error } = await admin
-		.from('users')
-		.update({
-			apple_music_user_token: musicUserToken,
-			streaming_service: 'apple',
-			is_authorized: true,
-			updated_at: new Date().toISOString()
-		})
-		.eq('id', user.id);
+	const payload = {
+		apple_music_user_token: musicUserToken,
+		streaming_service: 'apple',
+		is_authorized: true,
+		updated_at: new Date().toISOString()
+	};
+
+	// Try id = auth UUID (new schema after migration), fall back to auth_user_id.
+	let { error } = await admin.from('users').update(payload).eq('id', user.id);
+
+	if (error) {
+		const fallback = await admin.from('users').update(payload).eq('auth_user_id', user.id);
+		error = fallback.error;
+	}
 
 	if (error) {
 		console.error('Failed to save Apple Music token:', error);

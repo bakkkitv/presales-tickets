@@ -71,3 +71,24 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Add apple_music_user_token column if it doesn't exist.
+-- This stores the MusicKit Music User Token separately from Spotify access tokens.
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS apple_music_user_token text;
+
+-- If the table uses a separate auth_user_id column instead of id = auth UUID,
+-- add a unique index so we can look up by auth UUID either way.
+-- (safe to run even if the column already has a unique constraint)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name   = 'users'
+      AND column_name  = 'auth_user_id'
+  ) THEN
+    -- Table already uses id = auth UUID — nothing to add.
+    NULL;
+  END IF;
+END $$;
