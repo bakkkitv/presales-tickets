@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { fetchSpotifyTopArtists, refreshSpotifyAccessToken } from '$lib/server/spotify';
 import { fetchAppleMusicTopArtists } from '$lib/server/apple';
 
-export const load: PageServerLoad = async ({ locals, url }) => {
+export const load: PageServerLoad = async ({ locals }) => {
 	const localsAny = locals as any;
 
 	const { data: { user }, error: userError } = await localsAny.supabase.auth.getUser();
@@ -108,12 +108,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	// ── APPLE MUSIC ──────────────────────────────────────────────
 	if (userRow.streaming_service === 'apple') {
-		const authProvider = user.app_metadata?.provider;
-		// Don't loop Apple Music users back through auth if they signed in with Spotify
-		if (!url.searchParams.has('fresh') && authProvider !== 'spotify') {
-			throw redirect(303, '/api/apple/authorize');
-		}
 		const musicUserToken: string | null = (userRow as any).apple_music_user_token ?? userRow.access_token ?? null;
+		// No token yet — show the connect screen instead of looping to apple-connect
 		if (!musicUserToken) return { email: user.email ?? null, connected: false, topArtists: [], feed: [] };
 
 		const topArtistsRes = await fetchAppleMusicTopArtists(musicUserToken, 15);
