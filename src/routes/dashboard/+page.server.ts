@@ -58,10 +58,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 				}).eq('id', userRow.id);
 			} else {
 				console.error('Spotify refresh failed:', refreshed.error);
+				throw redirect(303, '/api/spotify/authorize');
 			}
+		} else if (isExpired && !refreshToken) {
+			throw redirect(303, '/api/spotify/authorize');
 		}
 
-		if (!accessToken) return { email: user.email ?? null, connected: false, topArtists: [], feed: [] };
+		if (!accessToken) throw redirect(303, '/api/spotify/authorize');
 
 		const topArtistsRes = await fetchSpotifyTopArtists(accessToken, 15);
 		if (!topArtistsRes.ok) {

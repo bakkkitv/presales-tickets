@@ -69,7 +69,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 				display_name: profile.display_name || null,
 				email: profile.email || null
 			},
-			{ onConflict: 'spotify_user_id' }
+			{ onConflict: 'auth_user_id' }
 		);
 
 	if (upsertErr) {
