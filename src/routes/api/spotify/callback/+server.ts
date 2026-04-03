@@ -55,26 +55,34 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 	// 4) Write to public.users using service role key (bypasses RLS)
 	const adminClient = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-	const { error: upsertErr } = await adminClient
-		.from('users')
-		.upsert(
-			{
-				auth_user_id: authUserId,
-				spotify_user_id: profile.id,
-				streaming_service: 'spotify',
-				access_token: tokens.access_token,
-				refresh_token: tokens.refresh_token,
-				token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-				is_authorized: true,
-				display_name: profile.display_name || null,
-				email: profile.email || null
-			},
-			{ onConflict: 'auth_user_id' }
-		);
+	const payload = {
+		auth_user_id: authUserId,
+		spotify_user_id: profile.id,
+		streaming_service: 'spotify',
+		access_token: tokens.access_token,
+		refresh_token: tokens.refresh_token,
+		token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+		is_authorized: true,
+		display_name: profile.display_name || null,
+		email: profile.email || null
+	};
 
-	if (upsertErr) {
-		console.error('Upsert failed:', upsertErr);
-		throw redirect(302, '/login?error=save_failed');
+	// Try updating the existing row first (works even without a unique constraint on auth_user_id).
+	const { data: updated, error: updateErr } = await adminClient
+		.from('users')
+		.update(payload)
+		.eq('auth_user_id', authUserId)
+		.select('id');
+
+	if (updateErr) console.error('Spotify update failed:', updateErr);
+
+	// No existing row — insert a fresh one.
+	if (!updateErr && (!updated || updated.length === 0)) {
+		const { error: insertErr } = await adminClient.from('users').insert([payload]);
+		if (insertErr) {
+			console.error('Spotify insert failed:', insertErr);
+			throw redirect(302, '/login?error=save_failed');
+		}
 	}
 
 	throw redirect(302, '/dashboard');
