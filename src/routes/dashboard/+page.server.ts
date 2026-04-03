@@ -108,7 +108,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	// ── APPLE MUSIC ──────────────────────────────────────────────
 	if (userRow.streaming_service === 'apple') {
-		if (!url.searchParams.has('fresh')) {
+		const authProvider = user.app_metadata?.provider;
+		// Don't loop Apple Music users back through auth if they signed in with Spotify
+		if (!url.searchParams.has('fresh') && authProvider !== 'spotify') {
 			throw redirect(303, '/api/apple/authorize');
 		}
 		const musicUserToken: string | null = (userRow as any).apple_music_user_token ?? userRow.access_token ?? null;
